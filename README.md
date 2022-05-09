@@ -66,17 +66,21 @@ human genes and their coordinates for human genome assembly GRCh38. Then it
 appends the imprinted status of all genes based on the imprinted gene file found
 in `data/gene_info/human_imprinted_genes.csv`. The calculation of per-gene pi is
 then performed for all chromosomes followed by the statistical
-analysis. Plotting and statistical analysis scripts are also included at the
-end.
+analysis. Plotting scripts are also included at the end.
 
 ## Directory structure
 
   - `R/` contains custom R functions used in the analysis
-  - `data/` contains the raw data used to conduct the analyses
+  - `data/` contains the raw data used to conduct the analyses as well as
+     placeholder directory that are empty and ready to receive input data
   - `figs/` contains figure 1 from the final report
   - `sh/` contains a shell script used to parallelize pi calculations
 
 ## Directory contents
+
+- `imprinted_ns_project.Rproj` marks the root directory as the working directory
+of the R project. All filepaths within the project are relative to the working
+directory and the root directory.
 
 - `final_report.pdf` contains the final report write-up for the project.
 
@@ -95,18 +99,26 @@ GeneImprint database to annotate whether a gene is imprinted or not
 script in `sh/calc_pi_job_array.sh`. It executes the nucleotide diversity
 calculation for a single chromosomal `.vcf.gz` file.
 
-`read_site_pi_files.R` reads in the XX
+`read_site_pi_files.R` reads in the nucleotide diversity calculations and
+appends all chromosomes together into one data frame.
 
 `tableau.colours.R` simply contains hex values of colours for figures
 
+### sh scripts
+
+`calc_pi_job_array.sh` queries the computing cluster at the zuckerman
+institute. This script may not be useful for you if you do not have access to
+the Zuckerman computing cluster. Nucleotide diversity can be calculated for each
+chromosome individually as I have described above if this is the case.
+
 ### data directory
 
-`imprinted_gene_names_list.csv` contains the gene name of all confirmed
+`imprinted_genes/imprinted_gene_names_list.csv` contains the gene name of all confirmed
 imprinted genes listed on GeneImprint
 
-`imprinted_ns_project.Rproj` marks the root directory as the working directory
-of the R project. All filepaths within the project are relative to the working
-directory and the root directory.
+`gene_info/` contains the output of R scripts that query biomart. They contain
+the ensembl gene id, gene name, and coordinates and imprinting status of all
+human genes.
 
 `pi_values/` is a blank folder intended to hold the output of your pi value
 calcuations
