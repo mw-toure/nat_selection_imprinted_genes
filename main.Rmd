@@ -1,0 +1,174 @@
+---
+title: "Main scripts for analysis"
+author: "M. Wyatt Toure"
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+source("R/tableau_colours.R")
+```
+
+```{r}
+source("R/query_biomart.R")
+```
+
+```{r}
+source("R/get_imprint_status.R")
+```
+
+Replace `raw_data_path` with the path where you have placed the pi calculations.
+
+```{r}
+source("R/read_site_pi_files.R")
+
+pi_values <- read_site_pi_files(raw_data_path = "data/pi_values/")
+```
+
+```{r}
+chromosomes <- unique(human_genes_df$chromosome_name)
+
+nuc_div_by_gene <- data.frame()
+
+for (i in 1:length(chromosomes)) {
+  curr_chr <- chromosomes[i]
+  
+  curr_chr_pi_values <- pi_values[gsub("chr", "", pi_values$CHROM) == curr_chr,]
+  
+  curr_chr_gene_imprint_status <- human_genes_df |> 
+    filter(chromosome_name == curr_chr)
+  
+  curr_chr_nuc_div_by_gene <- data.frame()
+  
+  print(paste("Calculating pi for chromosome", curr_chr))
+  
+  for (i in 1:nrow(curr_chr_gene_imprint_status)) {
+    gene_start <- curr_chr_gene_imprint_status$start_position[i]
+    gene_end <- curr_chr_gene_imprint_status$end_position[i]
+    
+    # get mean nucleotide diversity in this range
+    pi_in_gene <- curr_chr_pi_values |> 
+    filter(POS > gene_start & POS < gene_end) |> 
+    summarise(mean(PI)) |> 
+    pull()
+    
+    temp_data <- cbind(curr_chr_gene_imprint_status[i,1:3],
+                       curr_chr_gene_imprint_status$imprinted_status[i],
+                       pi_in_gene)
+    
+    curr_chr_nuc_div_by_gene <- rbind(curr_chr_nuc_div_by_gene, temp_data)
+  }
+  curr_chr_nuc_div_by_gene |> head()
+  nuc_div_by_gene <- rbind(nuc_div_by_gene, curr_chr_nuc_div_by_gene)
+  print(paste("Done with chromosome", curr_chr))
+}
+
+colnames(nuc_div_by_gene) <- c("gene_id", "gene_name", "chr", "gene_type", "pi")
+```
+
+```{r}
+nuc_div_by_gene <- nuc_div_by_gene |> mutate(gene_type = 
+           forcats::fct_relevel(gene_type, 
+                                "normal", "imprinted")
+         )
+
+aut_nuc_div_by_gene <- nuc_div_by_gene |> filter(chr != "X")
+```
+
+## Plots
+
+```{r}
+aut_nuc_div_by_gene$chr <- as.integer(aut_nuc_div_by_gene$chr)
+x_axis_labels <- c("N", "I")
+
+
+(a <- ggplot(aut_nuc_div_by_gene,
+       aes(x = gene_type,
+           y = pi,
+           fill = gene_type)) +
+  scale_fill_manual(values = c(grey, blue)) +
+  stat_summary(
+    fun = "mean",
+    size = 1.5,
+    aes(fill = gene_type),
+    shape = 21
+  ) +
+  facet_wrap(~chr, nrow = 1) +
+  theme_classic() +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        axis.text = element_text(size = 15),
+    axis.title = element_text(size = 10, face = "bold"),
+    strip.text = element_text(size = 18),
+    panel.background = element_rect(fill='transparent'),
+    panel.border = element_rect(colour = "#333333", fill = NA, size = 0.5), 
+    plot.background = element_rect(fill='transparent', color=NA)) +
+  geom_hline(yintercept = 0.04174400, lty = 2, color = grey, size = 1.5) +
+  scale_x_discrete(labels = x_axis_labels) +
+  xlab("Gene Type") +
+  ylab("Nucleotide diversity")
+)
+
+ggsave(
+  filename = "pi_all_chromosomes.png",
+  path = "figs/",
+  width = 11.5,
+  height = 4.85,
+  units = "in",
+  device = "png",
+  bg='transparent',
+  dpi = 600
+)
+```
+
+```{r}
+(b <- ggplot(aut_nuc_div_by_gene,
+       aes(x = gene_type,
+           y = pi,
+           fill = gene_type)) +
+  scale_fill_manual(values = c(grey, blue)) +
+  scale_color_manual(values = c(grey, blue)) +
+  geom_jitter(
+    width = 0.08,
+    height = 0.2,
+    aes(color = gene_type),
+    alpha = 0.5
+  ) +
+  theme_classic() +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        axis.text = element_text(size = 15),
+    axis.title = element_text(size = 18, face = "bold"),
+    strip.text = element_text(size = 25),
+    panel.background = element_rect(fill='transparent'),
+    plot.background = element_rect(fill='transparent', color=NA)) +
+  xlab("Gene Type") +
+  ylab("Nucleotide diversity")
+)
+```
+
+## Analysis
+
+```{r}
+na.omit(aut_nuc_div_by_gene) |> 
+  group_by(gene_type) |> 
+  summarise(mean(pi))
+```
+
+```{r}
+lm <- lm(pi ~ gene_type,
+                     data = aut_nuc_div_by_gene
+  )
+
+summary(lm)
+```
+
+```{r}
+na.omit(nuc_div_by_gene) |> group_by(chr) |> summarise(mean(pi))
+```
+
+
+
+
+
+
